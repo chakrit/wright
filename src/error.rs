@@ -3,7 +3,9 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum Error {
+    UsageError(&'static str),
     IoError(std::io::Error),
+    PathError(String),
 }
 
 impl Display for Error {
