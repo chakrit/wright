@@ -38,26 +38,18 @@ fn really_main() -> Result<()> {
 
     let mut folders: Vec<Folder> = vec![];
     for arg in args.into_iter() {
-        let folder = Folder::new(&arg);
-        match folder {
-            Err(err) => {
-                eprintln!("cannot access {}: {}", arg, err);
-                continue;
-            }
-            Ok(f) => {
-                if f.is_git_repository() {
-                    println!("found git repository: {}", arg);
-                    folders.push(f);
-                }
-            }
+        let folder = Folder::new(&arg)?;
+        if folder.is_git_repository() {
+            println!("found git repository: {}", arg);
+            folders.push(folder);
+        } else {
+            eprintln!("  not git repository: {}", arg);
+            folders.push(folder);
         }
     }
 
     for folder in folders.into_iter() {
-        let stats = folder.lines_by_files().unwrap();
-        for (lang, lines) in stats {
-            println!("{} = {}", lang, lines);
-        }
+        folder.generate_summary_zip()?;
     }
 
     Ok(())
