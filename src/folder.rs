@@ -27,6 +27,24 @@ impl Folder {
             Err(_) => false,
         }
     }
+
+    pub fn lines_by_files(&self) -> Result<Vec<(String, u32)>> {
+        use tokei::{Config, Languages, Sort};
+
+        let cfg = Config::default();
+        let ignores = [".git"];
+        let mut langs = Languages::new();
+        langs.get_statistics(&[&self.path], &ignores, &cfg);
+
+        Ok(langs
+            .into_iter()
+            .flat_map(|(lang_type, lang)| {
+                let mut lang = lang.summarise();
+                lang.sort_by(Sort::Files);
+                Some((lang.name, lang.reports[0].stats.code as u32))
+            })
+            .collect())
+    }
 }
 
 impl Display for Folder {

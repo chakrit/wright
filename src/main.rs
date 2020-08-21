@@ -10,7 +10,7 @@ use std::path::Path;
 fn main() {
     match really_main() {
         Err(err) => panic!("error: {}", err),
-        Ok(_) => println!("done."),
+        Ok(_) => println!("finished."),
     }
 }
 
@@ -36,21 +36,27 @@ fn really_main() -> Result<()> {
         return Err(Error::UsageError("need at least 1 module to process."));
     }
 
-    let (ok_folders, err_folders): (Vec<Result<Folder>>, Vec<Result<Folder>>) = args
-        .into_iter()
-        .map(|a| Folder::new(&a))
-        .partition(|f| f.is_ok());
-    let ok_folders: Vec<_> = ok_folders.into_iter().flat_map(|f| f.ok()).collect();
-    let err_folders: Vec<_> = err_folders.into_iter().flat_map(|f| f.err()).collect();
-
-    for err in err_folders.iter() {
-        println!("could not access folder: {}", err);
+    let mut folders: Vec<Folder> = vec![];
+    for arg in args.into_iter() {
+        let folder = Folder::new(&arg);
+        match folder {
+            Err(err) => {
+                eprintln!("cannot access {}: {}", arg, err);
+                continue;
+            }
+            Ok(f) => {
+                if f.is_git_repository() {
+                    println!("found git repository: {}", arg);
+                    folders.push(f);
+                }
+            }
+        }
     }
-    for f in ok_folders.iter() {
-        if f.is_git_repository() {
-            println!("git repo detected: {}", &f);
-        } else {
-            println!("not a git repo: {}", &f);
+
+    for folder in folders.into_iter() {
+        let stats = folder.lines_by_files().unwrap();
+        for (lang, lines) in stats {
+            println!("{} = {}", lang, lines);
         }
     }
 
