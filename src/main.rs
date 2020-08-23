@@ -1,20 +1,11 @@
-mod error;
 mod folder;
 mod result;
 
-use crate::error::Error;
 use crate::folder::Folder;
-use crate::result::Result;
+use crate::result::*;
 use std::path::Path;
 
-fn main() {
-    match really_main() {
-        Err(err) => panic!("error: {}", err),
-        Ok(_) => println!("finished."),
-    }
-}
-
-fn really_main() -> Result<()> {
+fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.len() == 0 {
@@ -33,7 +24,7 @@ fn really_main() -> Result<()> {
     }
 
     if args.len() == 0 {
-        return Err(Error::UsageError("need at least 1 module to process."));
+        return Err(error!("could not find any directory to process"));
     }
 
     let mut folders: Vec<Folder> = vec![];
@@ -49,6 +40,7 @@ fn really_main() -> Result<()> {
     }
 
     for folder in folders.into_iter() {
+        println!("processing: {}", folder);
         folder.generate_summary_zip()?;
     }
 

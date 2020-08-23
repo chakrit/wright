@@ -1,5 +1,4 @@
-use crate::error::Error;
-use crate::result::Result;
+use crate::result::*;
 use std::fmt::Display;
 use std::fs::{canonicalize, metadata, File};
 use std::iter::IntoIterator;
@@ -13,9 +12,9 @@ pub struct Folder {
 impl Folder {
     pub fn new(base_path: &str) -> Result<Folder> {
         let canon_path = canonicalize(&base_path)?;
-        let canon_path = canon_path.to_str().ok_or_else(|| {
-            Error::PathError(format!("failed to resolve path: {}", base_path).to_string())
-        })?;
+        let canon_path = canon_path
+            .to_str()
+            .ok_or_else(|| error!("failed to resolve path: {}", base_path))?;
         Ok(Folder {
             path: PathBuf::from(canon_path),
         })
@@ -43,11 +42,7 @@ impl Folder {
             lang.sort_by(tokei::Sort::Files);
 
             for r in lang.reports.into_iter() {
-                let filename = r
-                    .name
-                    .to_str()
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| Error::PathError("tokei processing error".to_string()))?;
+                let filename = r.name.to_string_lossy().to_string();
                 results.push((filename, r.stats.code as u32));
             }
         }
@@ -63,30 +58,32 @@ impl Folder {
             println!("{} = {}", lang, lines);
         }
 
-        let zip_name = self
-            .path
-            .to_str()
-            .ok_or_else(|| Error::PathError("problem generating zip filenames".to_string()))?;
-        let file = File::create(zip_name)?;
+        let mut zip_name = self.path.to_string_lossy().to_string();
+        zip_name.push_str(".zip");
+
+        let file = File::create(&zip_name)
+            .with_context(|| format!("failed to create zip archive: {}", &zip_name))?;
         {
             let mut zip = zip::ZipWriter::new(&file);
 
             for (filename, _) in stats.into_iter() {
-                let mut source_file = File::open(&filename)?;
+                let mut source_file = File::open(&filename)
+                    .with_context(|| format!("failed to open: {}", &filename))?;
 
-                let entry_name: PathBuf = filename.into();
+                let entry_name: PathBuf = filename.clone().into();
                 let entry_name = entry_name
                     .file_name()
-                    .ok_or_else(|| Error::PathError("bad source code filename".to_string()))?
-                    .to_str()
-                    .ok_or_else(|| Error::PathError("bad source code filename".to_string()))?
-                    .to_string();
+                    .map(|s| s.to_string_lossy().to_string())
+                    .ok_or_else(|| error!("cannot zip path: {}", &filename))?;
 
-                zip.start_file(entry_name, zip::write::FileOptions::default())?;
-                std::io::copy(&mut source_file, &mut zip)?;
+                zip.start_file(entry_name, zip::write::FileOptions::default())
+                    .with_context(|| format!("problem writing zip entry for: {}", &filename))?;
+                std::io::copy(&mut source_file, &mut zip)
+                    .with_context(|| format!("problem writing zip entry for: {}", &filename))?;
             }
 
-            zip.finish()?;
+            zip.finish()
+                .with_context(|| format!("problem finishing zip archive: {}", &zip_name))?;
         }
         Ok(file)
     }
