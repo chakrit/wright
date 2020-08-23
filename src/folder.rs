@@ -66,15 +66,19 @@ impl Folder {
         {
             let mut zip = zip::ZipWriter::new(&file);
 
-            for (filename, _) in stats.into_iter() {
+            for (num, (filename, _)) in stats.into_iter().enumerate() {
                 let mut source_file = File::open(&filename)
                     .with_context(|| format!("failed to open: {}", &filename))?;
 
                 let entry_name: PathBuf = filename.clone().into();
-                let entry_name = entry_name
-                    .file_name()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .ok_or_else(|| error!("cannot zip path: {}", &filename))?;
+                let entry_name = format!(
+                    "file {} - {}",
+                    num + 1,
+                    entry_name
+                        .file_name()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .ok_or_else(|| error!("cannot zip path: {}", &filename))?
+                );
 
                 zip.start_file(entry_name, zip::write::FileOptions::default())
                     .with_context(|| format!("problem writing zip entry for: {}", &filename))?;
