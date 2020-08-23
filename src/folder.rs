@@ -29,10 +29,20 @@ impl Folder {
     }
 
     pub fn file_stats(&self) -> Result<Vec<(String, u32)>> {
-        println!("processing: {:?}", self.path.to_str());
-
         let cfg = tokei::Config::default();
-        let ignores = [".git", ".yarn", "target"];
+        let ignores = [
+            "*.json",
+            "*.svg",
+            "*.yml",
+            ".git",
+            ".yarn",
+            "assets",
+            "data",
+            "migrations",
+            "target",
+            "vendor",
+        ];
+
         let mut langs = tokei::Languages::new();
         langs.get_statistics(&[&self.path], &ignores, &cfg);
 
