@@ -6,35 +6,41 @@ use crate::result::*;
 use std::path::Path;
 
 fn main() -> Result<()> {
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let folder_paths: Vec<String>;
 
     if args.len() == 0 {
-        let cwd = Path::new(".").canonicalize()?;
-        let dir = cwd.read_dir()?;
-        args = dir
-            .filter_map(|entry| entry.ok())
-            .filter_map(|entry| entry.file_name().into_string().ok())
-            .collect();
+        let cwd = Path::new(".")
+            .canonicalize()
+            .with_context(|| "could not determine cwd")?
+            .to_string_lossy()
+            .to_string();
+        folder_paths = vec![cwd];
     } else {
-        args = args
+        folder_paths = args
             .iter()
-            .filter_map(|arg| Path::new(&arg).canonicalize().ok())
-            .filter_map(|p| p.to_str().map(|s| s.to_string()))
+            .filter_map(|arg| {
+                Path::new(&arg)
+                    .canonicalize()
+                    .with_context(|| format!("failed to find canonical path of: {}", &arg))
+                    .ok()
+            })
+            .map(|p| p.to_string_lossy().to_string())
             .collect();
     }
 
-    if args.len() == 0 {
+    if folder_paths.len() == 0 {
         return Err(error!("could not find any directory to process"));
     }
 
     let mut folders: Vec<Folder> = vec![];
-    for arg in args.into_iter() {
-        let folder = Folder::new(&arg)?;
+    for p in folder_paths.into_iter() {
+        let folder = Folder::new(&p)?;
         if folder.is_git_repository() {
-            println!("found git repository: {}", arg);
+            println!("found git repository: {}", &p);
             folders.push(folder);
         } else {
-            eprintln!("  not git repository: {}", arg);
+            eprintln!("  not git repository: {}", &p);
             folders.push(folder);
         }
     }
